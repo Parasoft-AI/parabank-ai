@@ -20,7 +20,7 @@ public abstract class AbstractCustomerControllerTest<T extends AbstractValidatin
 
     protected CustomerForm getCustomerForm() throws Exception {
         final CustomerForm form = createCustomerForm();
-        //form.getCustomer().setId(12212);
+        form.getCustomer().setId(12212);
         form.getCustomer().setFirstName("first name");
         form.getCustomer().setLastName("last name");
         final Address address = new Address();
