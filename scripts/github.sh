@@ -13,6 +13,7 @@ function start_review() {
 		echo "ERROR: Invalid pull-request $GIT_PULL_REQUEST_ID"
 		exit 1
 	fi
+	echo "Loading modified files from pull-request"
 	curl -X GET --url "$GIT_BASEURL/repos/$GIT_OWNER/$GIT_REPO/pulls/$GIT_PULL_REQUEST_ID/files" -L \
 		-H "Accept: application/vnd.github+json" \
 		-H "User-Agent: $GIT_USER" \
@@ -27,6 +28,7 @@ function start_review() {
 		exit 1
 	fi
 	# Start the review
+	echo "Starting pull-request review"
 	curl -X POST --url "$GIT_BASEURL/repos/$GIT_OWNER/$GIT_REPO/pulls/$GIT_PULL_REQUEST_ID/reviews" -L \
 		-H "Accept: application/vnd.github+json" \
 		-H "User-Agent: $GIT_USER" \
@@ -45,6 +47,7 @@ function start_review() {
 		exit 1
 	fi
 	echo "Pull-request review $REVIEW_ID started"
+	echo ""
 }
 
 function get_modified_resources() {
@@ -53,13 +56,15 @@ function get_modified_resources() {
 }
 
 function cancel_review() {
+	echo "Cancelling pull-request review"
 	curl -X DELETE --url "$GIT_BASEURL/repos/$GIT_OWNER/$GIT_REPO/pulls/$GIT_PULL_REQUEST_ID/reviews/$REVIEW_ID" -L \
 		-H "Accept: application/vnd.github+json" \
 		-H "User-Agent: $GIT_USER" \
 		-H "Authorization: Bearer $GIT_AUTH" \
-		-H "X-GitHub-Api-Version: 2022-11-28"
+		-H "X-GitHub-Api-Version: 2022-11-28" \
 		-o scripts/cancelled.json
 	echo "Pull-request review $REVIEW_ID cancelled"
+	echo ""
 }
 
 function finish_review() {

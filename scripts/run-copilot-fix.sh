@@ -5,10 +5,10 @@ COPILOT=
 GIT_TYPE=GitHub
 GIT_PULL_REQUEST_ID=
 GIT_PROJECT=XTEST
-GIT_OWNER="bmcglau-parasoft"
+GIT_OWNER="Parasoft-AI"
 GIT_REPO="parabank-ai"
 GIT_BASEURL="https://api.github.com"
-GIT_USER="bmcglau-parasoft"
+GIT_USER="Parasoft Automated Agent"
 GOALS=
 
 SA_CONFIG="builtin://Demo Configuration"
@@ -61,16 +61,16 @@ do
 				GIT_USER="jenkins-git"
 			fi
 			;;
-		--git-project )		 GIT_PROJECT="${2// }";		 shift 2 || missingArg --git-project  ;;
-		--git-owner )		 GIT_OWNER="${2// }";		 shift 2 || missingArg --git-owner	  ;;
-		--git-repo )		 GIT_REPO="${2// }";		 shift 2 || missingArg --git-repo	  ;;
-		--git-base-url )	 GIT_BASEURL="${2// }";		 shift 2 || missingArg --git-base-url ;;
-		--git-auth )		 GIT_AUTH="${2// }";		 shift 2 || missingArg --git-auth	  ;;
-		--git-user )		 GIT_USER="${2// }";		 shift 2 || missingArg --git-user	  ;;
-		--sa-config )		 SA_CONFIG="${2// }";		 shift 2 || missingArg --sa-config	  ;;
-		--sa-settings )		 SA_SETTINGS="${2// }";		 shift 2 || missingArg --sa-settings  ;;
-		--testgen-settings ) TESTGEN_SETTINGS="${2// }"; shift 2 || missingArg --testgen-settings  ;;
-		--maven-path )       MVN_PATH="${2// }/bin/mvn"; shift 2 || missingArg --maven-path
+		--git-project )		 GIT_PROJECT="${2// }";	 shift 2 || missingArg --git-project  ;;
+		--git-owner )		 GIT_OWNER="${2// }";	 shift 2 || missingArg --git-owner	  ;;
+		--git-repo )		 GIT_REPO="${2// }";	 shift 2 || missingArg --git-repo	  ;;
+		--git-base-url )	 GIT_BASEURL="${2// }";	 shift 2 || missingArg --git-base-url ;;
+		--git-auth )		 GIT_AUTH="$2";			 shift 2 || missingArg --git-auth	  ;;
+		--git-user )		 GIT_USER="$2";			 shift 2 || missingArg --git-user	  ;;
+		--sa-config )		 SA_CONFIG="$2";		 shift 2 || missingArg --sa-config	  ;;
+		--sa-settings )		 SA_SETTINGS="$2";		 shift 2 || missingArg --sa-settings  ;;
+		--testgen-settings ) TESTGEN_SETTINGS="$2";	 shift 2 || missingArg --testgen-settings  ;;
+		--maven-path )       MVN_PATH="$2/bin/mvn";	 shift 2 || missingArg --maven-path
 			if [[ -f "$MVN_PATH" ]]; then
 				MVN="$MVN_PATH"
 			else
@@ -78,7 +78,7 @@ do
 				exit 1
 			fi
 			;;
-		--copilot-path )     COPILOT_PATH="${2// }";     shift 2 || missingArg --copilot-path
+		--copilot-path )     COPILOT_PATH="$2";     shift 2 || missingArg --copilot-path
 			if [[ -f "$COPILOT_PATH" ]]; then
 				COPILOT="$COPILOT_PATH"
 			else
@@ -98,6 +98,7 @@ done
 if [[ -z "$GOALS" ]]; then
 	GOALS="static-fix,run-test,testgen"
 	echo "No goals specified - all goals will be run"
+	echo ""
 fi
 
 if [[ -z "$GIT_PULL_REQUEST_ID" ]]; then
@@ -121,6 +122,7 @@ if [[ -z "$MVN" || ! -f "$MVN" ]]; then
 fi
 echo "Maven found at $MVN"
 "$MVN" --version
+echo ""
 
 if [[ -z "$COPILOT" || ! -f "$COPILOT" ]]; then
 	COPILOT=$(which copilot)
@@ -131,19 +133,40 @@ if [[ -z "$COPILOT" || ! -f "$COPILOT" ]]; then
 fi
 echo "Copilot CLI found at $COPILOT"
 "$COPILOT" --version
+echo ""
 
 STATUS=ok
 SUMMARY="# Analysis Summary"$'\n'
 
+echo "Settings:"
+echo "    SA_CONFIG            : $SA_CONFIG"
+echo "    SA_SETTINGS          : $SA_SETTINGS"
+echo "    TIA_SETTINGS         : $TIA_SETTINGS"
+echo "    TESTGEN_SETTINGS     : $TESTGEN_SETTINGS"
+echo "    MVN                  : $MVN"
+echo "    COPILOT              : $COPILOT"
+echo "    GIT_PULL_REQUEST_ID  : $GIT_PULL_REQUEST_ID"
+echo "    GIT_TYPE             : $GIT_TYPE"
 case "$GIT_TYPE" in
-	BitBucket )		source ./scripts/bitbucket.sh	;;
-	GitHub )		source ./scripts/github.sh		;;
+	BitBucket )
+		source ./scripts/bitbucket.sh
+		echo "    GIT_PROJECT          : $GIT_PROJECT"
+	;;
+	GitHub )
+		source ./scripts/github.sh
+		echo "    GIT_OWNER            : $GIT_OWNER"
+	;;
 	* )
 		echo "ERROR: --git-type $GIT_TYPE not supported."
 		print_usage
 		exit 1
 		;;
 esac
+echo "    GIT_REPO             : $GIT_REPO"
+echo "    GIT_BASEURL          : $GIT_BASEURL"
+echo "    GIT_USER             : $GIT_USER"
+echo "    GOALS                : $GOALS"
+echo ""
 
 start_review
 
@@ -168,7 +191,6 @@ function finish () {
 	echo "========================================================"
 	finish_review "$SUMMARY" "$STATUS"
 	echo "$SUMMARY" >> "scripts/summary.md"
-
 	echo ""
 	echo "=====[ Done ]====="
 }
@@ -182,6 +204,7 @@ echo "Found project name $PROJECT_NAME"
 if [[ "$GOALS" == *"run-test"* ]]; then
 	# Run impacted tests with Jtest
 	# TODO: Make this a TIA run
+	echo ""
 	echo "============================="
 	echo "=====[ Run Junit tests ]====="
 	echo "============================="
@@ -216,6 +239,7 @@ fi
 
 if [[ "$GOALS" == *"static"* || "$GOALS" == *"static-fix"* ]]; then
 	# Perform SA on modified files and generate report.xml
+	echo ""
 	echo "=========================================================="
 	echo "=====[ Performing static analysis on modified files ]====="
 	echo "=========================================================="
@@ -240,6 +264,7 @@ else
 fi
 
 if [[ "$NUM_VIOLATIONS" -ne 0 && "$GOALS" == *"static-fix"* ]]; then
+	echo ""
     echo "==============================================================="
 	echo "=====[ Ask Copilot CLI to fix violations and commit them ]====="
 	echo "==============================================================="
@@ -280,6 +305,7 @@ fi
 
 if [[ "$GOALS" == *"testgen"* ]]; then
 	# Perform Jtest CLI bulk test creation for modified source files. Commit changes and push to add to pull-request.
+	echo ""
 	echo "========================================================="
 	echo "=====[ Create Junit tests for modified or new code ]====="
 	echo "========================================================="
