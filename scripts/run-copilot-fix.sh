@@ -288,7 +288,7 @@ if [[ "$NUM_VIOLATIONS" -ne 0 && "$GOALS" == *"static-fix"* ]]; then
 	NEEDS_PUSH=$(git status | grep -c -e 'is ahead of ')
 	if [[ -n "$NEEDS_PUSH" ]]; then
 		echo "Pushing changes to update pull-request"
-		echo "git push"
+		git push
 		SUMMARY+="4. Fixes added to pull-request"$'\n'
 		STATUS=review
 	else
@@ -318,7 +318,7 @@ if [[ "$GOALS" == *"testgen"* ]]; then
 		echo "Modified java code detected - adding to pull-request"
 		git add "*.java"
 		git commit -m "Parasoft Jtest: Adding Junit tests for modified code $PULL_REQUEST_ID"
-		echo "git push"
+		git push
 		SUMMARY+="Tests were committed to this pull-request"$'\n'
 		if [[ "$STATUS" == "ok" ]]; then
 			STATUS=review
