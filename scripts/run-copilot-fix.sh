@@ -290,6 +290,8 @@ if [[ "$NUM_VIOLATIONS" -ne 0 && "$GOALS" == *"static-fix"* ]]; then
 		SUMMARY+="** No summary from Copilot CLI! **"$'\n'
 	fi
 	SUMMARY+=""$'\n'
+	SUMMARY+="### Outcome"$'\n'
+	SUMMARY+=""$'\n'
 
 	# If there's any local commits to add to the pull-request, push them now
 	NEEDS_PUSH=$(git status | grep -c -e 'is ahead of ')
@@ -306,6 +308,9 @@ if [[ "$NUM_VIOLATIONS" -ne 0 && "$GOALS" == *"static-fix"* ]]; then
 else
 	if [[ "$GOALS" == *"static-fix"* ]]; then
 		echo "No violations for Copilot to fix"
+		SUMMARY+=""$'\n'
+		SUMMARY+="### Outcome"$'\n'
+		SUMMARY+=""$'\n'
 		SUMMARY+="- No violations for Copilot to fix"$'\n'
 		SUMMARY+="- No fixes to push"$'\n'
 		SUMMARY+=""$'\n'
@@ -341,6 +346,9 @@ if [[ "$GOALS" == *"testgen"* ]]; then
 		SUMMARY+=""$'\n'
 	fi
 
+	SUMMARY+=""$'\n'
+	SUMMARY+="### Outcome"$'\n'
+	SUMMARY+=""$'\n'
 	MODIFIED=$(git diff --name-only HEAD -- "*.java")
 	if [[ ! -z "$MODIFIED" ]]; then
 		echo "Modified java code detected - adding to pull-request"
