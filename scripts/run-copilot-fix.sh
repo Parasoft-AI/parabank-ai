@@ -11,9 +11,10 @@ GIT_BASEURL="https://api.github.com"
 GIT_USER="Parasoft Automated Agent"
 GOALS=
 
-SA_CONFIG="builtin://Demo Configuration"
+SA_CONFIG="builtin://Recommended Rules"
 SA_SETTINGS="scripts/jtestcli.properties"
 TIA_SETTINGS="scripts/jtestcli.properties"
+TESTGEN_CONFIG="builtin://Create Unit Tests"
 TESTGEN_SETTINGS="scripts/testgen.properties"
 
 function print_usage() {
@@ -32,9 +33,11 @@ function print_usage() {
 	echo "          --git-user <username>             Username for interacting with pull-request API"
 	echo "                                            Must match the auth token"
 	echo "          --sa-config <configuration>       Jtest configuration to use when performing static analysis"
-	echo "                                            Default: 'builtin://Demo Configuration'"
+	echo "                                            Default: 'builtin://Recommended Rules'"
 	echo "          --sa-settings <settings>          Path to the .properties file for Jtest static analysis settings"
 	echo "          --tia-settings <settings>         Path to the .properties file for Jtest impacted test execution settings"
+	echo "          --testgen-config <configuration>  Jtest configuration to use for Jtest bulk creation"
+	echo "                                            Default: 'builtin://Create Unit Tests'"
 	echo "          --testgen-settings <settings>     Path to the .properties file for Jtest bulk creation"
 	echo "          --maven-path <path>               Path to maven home - bin/mvn should be relative to this directory"
 	echo "          --copilot-path <path>             Path to copilot executable"
@@ -69,6 +72,7 @@ do
 		--git-user )		 GIT_USER="$2";			 shift 2 || missingArg --git-user	  ;;
 		--sa-config )		 SA_CONFIG="$2";		 shift 2 || missingArg --sa-config	  ;;
 		--sa-settings )		 SA_SETTINGS="$2";		 shift 2 || missingArg --sa-settings  ;;
+		--testgen-config ) 	 TESTGEN_CONFIG="$2";	 shift 2 || missingArg --testgen-config  ;;
 		--testgen-settings ) TESTGEN_SETTINGS="$2";	 shift 2 || missingArg --testgen-settings  ;;
 		--maven-path )       MVN_PATH="$2/bin/mvn";	 shift 2 || missingArg --maven-path
 			if [[ -f "$MVN_PATH" ]]; then
@@ -315,7 +319,7 @@ if [[ "$GOALS" == *"testgen"* ]]; then
 	echo "=====[ Create Junit tests for modified or new code ]====="
 	echo "========================================================="
 	get_modified_resources
-	"$MVN" jtest:jtest -Djtest.config="builtin://Create Unit Tests" -Djtest.settings="$TESTGEN_SETTINGS" -Djtest.resources="$RESOURCES"
+	"$MVN" jtest:jtest -Djtest.config="$TESTGEN_CONFIG" -Djtest.settings="$TESTGEN_SETTINGS" -Djtest.resources="$RESOURCES"
 	SUMMARY+="## Test creation for modified code"$'\n'
 
 	CONSOLE_TXT=$(find target/jtest/.jtest/logs -maxdepth 1 -type d -print0 | xargs -0 stat --format='%Y  %n' | sort -nr  | head -n1 | cut -d' ' -f2- | sed -e 's/^[ ]*//' -e 's/[ ]*$//')
