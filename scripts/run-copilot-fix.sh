@@ -210,10 +210,11 @@ if [[ "$GOALS" == *"run-test"* ]]; then
 	echo "============================="
 	"$MVN" test surefire-report:report-only -P run-tia -Dmaven.test.failure.ignore=true -Dtia.settings="$TIA_SETTINGS"
 	SUMMARY+="## Junit test execution"$'\n'
+	SUMMARY+=""$'\n'
 	if [[ -f "target/reports/surefire.html" ]]; then
 		rm -rf scripts/test_failures.md
 		rm -rf scripts/test_results.md
-		"$COPILOT" -p "Examine the Surefire report at @target/reports/surefire.html. Create a simple markdown report containing only information from the 'Summary' and 'Failure Details' sections of the report. If there were any failures, write your report to scripts/test_failures.md; otherwise, write your report to scripts/test_results.md." --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
+		"$COPILOT" -p "Examine the Surefire report at @target/reports/surefire.html. Create a simple markdown report containing only information from the 'Summary' and 'Failure Details' sections of the report and using no headers bigger than H3. If there were any failures, write your report to scripts/test_failures.md; otherwise, write your report to scripts/test_results.md." --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
 		if [[ -f "scripts/test_failures.md" ]]; then
 			echo "There are test failures. The pull-request will be marked as 'Needs Work'."
 			COMMENT=$(cat scripts/test_failures.md)
@@ -244,13 +245,14 @@ if [[ "$GOALS" == *"static"* || "$GOALS" == *"static-fix"* ]]; then
 	echo "=====[ Performing static analysis on modified files ]====="
 	echo "=========================================================="
 	SUMMARY+="## Static Analysis"$'\n'
+	SUMMARY+=""$'\n'
 	"$MVN" jtest:jtest -Dmaven.test.skip=true -Djtest.config="$SA_CONFIG" -Djtest.settings="$SA_SETTINGS"
 	if [[ ! -f 'target/jtest/jtest.data.json' ]]; then
 		echo "ERROR: SA failed"
 		finish
 		exit 1
 	fi
-	SUMMARY+="1. Jtest performed analysis on modified files using the \"$SA_CONFIG\" configuration"$'\n'
+	SUMMARY+="- Jtest performed analysis on modified files using the \"$SA_CONFIG\" configuration"$'\n'
 
 	# Configure environment variables and ask CoPilot CLI to fix violations using Jtest MCP server to get the violations, docs etc. For successful fixes, add a commit for each one.
 	NUM_VIOLATIONS=$(cat target/jtest/report.xml | sed -n "s/.*Goals tsks=\"\([0-9]\+\)\".*/\1/p")
@@ -258,7 +260,7 @@ if [[ "$GOALS" == *"static"* || "$GOALS" == *"static-fix"* ]]; then
 		NUM_VIOLATIONS=0
 	fi
 	echo "Jtest found $NUM_VIOLATIONS violations"
-	SUMMARY+="2. Jtest found $NUM_VIOLATIONS violations"$'\n'
+	SUMMARY+="- Jtest found $NUM_VIOLATIONS violations"$'\n'
 else
 	NUM_VIOLATIONS=0
 fi
@@ -276,30 +278,33 @@ if [[ "$NUM_VIOLATIONS" -ne 0 && "$GOALS" == *"static-fix"* ]]; then
 	rm -rf scripts/copilot_summary.md
 	"$COPILOT" -p "Using @scripts/copilot-instructions.md, fix violations" --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
 	
+	SUMMARY+="## Fixing violations with Copilot CLI"$'\n'
+	SUMMARY+=""$'\n'
 	if [[ -f scripts/copilot_summary.md ]]; then
-		SUMMARY+="3. Summary from Copilot CLI:"$'\n'
 		SUMMARY+=$(cat scripts/copilot_summary.md)
-		SUMMARY+=$'\n'
 	else 
-		SUMMARY+="3. ** No summary from Copilot CLI! **"$'\n'
+		SUMMARY+="** No summary from Copilot CLI! **"$'\n'
 	fi
+	SUMMARY+=""$'\n'
 
 	# If there's any local commits to add to the pull-request, push them now
 	NEEDS_PUSH=$(git status | grep -c -e 'is ahead of ')
 	if [[ -n "$NEEDS_PUSH" ]]; then
 		echo "Pushing changes to update pull-request"
 		git push
-		SUMMARY+="4. Fixes added to pull-request"$'\n'
+		SUMMARY+="Fixes committed to pull-request"$'\n'
 		STATUS=review
 	else
 		echo "No violation fixes to submit"
-		SUMMARY+="4. No fixes to push"$'\n'
+		SUMMARY+="No fixes to push"$'\n'
 	fi
+	SUMMARY+=""$'\n'
 else
 	if [[ "$GOALS" == *"static-fix"* ]]; then
 		echo "No violations for Copilot to fix"
-		SUMMARY+="3. No violations for Copilot to fix"$'\n'
-		SUMMARY+="4. No fixes to push"$'\n'
+		SUMMARY+="- No violations for Copilot to fix"$'\n'
+		SUMMARY+="- No fixes to push"$'\n'
+		SUMMARY+=""$'\n'
 	fi
 fi
 
@@ -312,6 +317,25 @@ if [[ "$GOALS" == *"testgen"* ]]; then
 	get_modified_resources
 	"$MVN" jtest:jtest -Djtest.config="builtin://Create Unit Tests" -Djtest.settings="$TESTGEN_SETTINGS" -Djtest.resources="$RESOURCES"
 	SUMMARY+="## Test creation for modified code"$'\n'
+
+	CONSOLE_TXT=$(find target/jtest/.jtest/logs -maxdepth 1 -type d -print0 | xargs -0 stat --format='%Y  %n' | sort -nr  | head -n1 | cut -d' ' -f2- | sed -e 's/^[ ]*//' -e 's/[ ]*$//')
+	"$COPILOT"  -p "In the file $CONSOLE_TXT/console.output.txt, find the sections called 'Diagnostics Summary' and 'Test generation finished', convert them into markdown format using no headers bigger than H3, and write the markdown to scripts/testgen.md." --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
+
+	if [[ -f scripts/testgen.md ]]; then
+		SUMMARY+=$(cat scripts/testgen.md)
+		SUMMARY+=$'\n'
+	else 
+		SUMMARY+="** No summary from Copilot CLI! **"$'\n'
+		SUMMARY+=""$'\n'
+		SUMMARY+="### Tests generated for classes"$'\n'
+		SUMMARY+=""$'\n'
+		SUMMARY+="$RESOURCES"$'\n'
+		SUMMARY+=""$'\n'
+		SUMMARY+="### New or modified test classes"$'\n'
+		SUMMARY+=""$'\n'
+		SUMMARY+=$(git status | grep .java | cut -d' ' -f2-)
+		SUMMARY+=""$'\n'
+	fi
 
 	MODIFIED=$(git diff --name-only HEAD -- "*.java")
 	if [[ ! -z "$MODIFIED" ]]; then

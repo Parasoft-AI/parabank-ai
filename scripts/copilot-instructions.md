@@ -90,7 +90,7 @@ When the user requests violation fixes, you MUST follow this exact sequence:
    - If SUCCESS: commit with detailed message
    - If FAILURE: revert, report error, optionally retry once with a different approach. **DO NOT ATTEMPT TO COMMIT ON FAILURE, EVEN IF REASON IS UNRELATED WITH THE FIX, REPORT ISSUE TO THE USER**
 
-5. **Summary**: Report a brief summary containing total fixes attempted, files modified, successful commits, and failures. Also write this brief summary in markdown format to scripts/copilot_summary.md.
+5. **Summary**: Report a brief summary containing total fixes attempted, files modified, successful commits, and failures. Also write this brief summary in markdown format, using no headers bigger than H3, to scripts/copilot_summary.md.
 
 ---
 
