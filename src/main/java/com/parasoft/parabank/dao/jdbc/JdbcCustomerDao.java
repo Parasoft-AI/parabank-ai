@@ -53,7 +53,7 @@ public class JdbcCustomerDao extends NamedParameterJdbcDaoSupport implements Cus
      */
     @Override
     public int createCustomer(final Customer customer) {
-        if customer.getId() > 0) {
+        if (customer.getId() > 0) {
             Customer existing = getCustomer(customer.getSsn());
             return existing.getId();
         }
