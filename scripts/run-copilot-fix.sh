@@ -199,6 +199,10 @@ function finish () {
 	echo "========================================================"
 	echo "=====[ Adding summary comment and updating status ]====="
 	echo "========================================================"
+	SUMMARY+=""$'\n'
+	SUMMARY+="---"$'\n'
+	SUMMARY+="Job details: [$BUILD_URL]($BUILD_URL)."$'\n'
+	SUMMARY+=""$'\n'
 	finish_review "$SUMMARY" "$STATUS"
 	echo "$SUMMARY" >> "scripts/summary.md"
 	echo ""
