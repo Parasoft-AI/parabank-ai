@@ -14,6 +14,7 @@ GOALS=
 
 SA_CONFIG="builtin://Recommended Rules"
 SA_SETTINGS="scripts/jtestcli.properties"
+SA_FIX_COUNT=2
 TIA_SETTINGS="scripts/jtestcli.properties"
 TESTGEN_CONFIG="builtin://Create Unit Tests"
 TESTGEN_SETTINGS="scripts/testgen.properties"
@@ -40,6 +41,7 @@ function print_usage() {
 	echo "          --sa-config <configuration>       Jtest configuration to use when performing static analysis"
 	echo "                                            Default: 'builtin://Recommended Rules'"
 	echo "          --sa-settings <settings>          Path to the .properties file for Jtest static analysis settings"
+	echo "          --sa-fix-count <count>            Max number of violations to fix per-file. Default: 2"
 	echo "          --tia-settings <settings>         Path to the .properties file for Jtest impacted test execution settings"
 	echo "          --testgen-config <configuration>  Jtest configuration to use for Jtest bulk creation"
 	echo "                                            Default: 'builtin://Create Unit Tests'"
@@ -69,16 +71,17 @@ do
 				GIT_USER="jenkins-git"
 			fi
 			;;
-		--git-project )		 GIT_PROJECT="${2// }";	 shift 2 || missingArg --git-project  ;;
-		--git-owner )		 GIT_OWNER="${2// }";	 shift 2 || missingArg --git-owner	  ;;
-		--git-repo )		 GIT_REPO="${2// }";	 shift 2 || missingArg --git-repo	  ;;
-		--git-base-url )	 GIT_BASEURL="${2// }";	 shift 2 || missingArg --git-base-url ;;
-		--git-auth )		 GIT_AUTH="$2";			 shift 2 || missingArg --git-auth	  ;;
-		--git-user )		 GIT_USER="$2";			 shift 2 || missingArg --git-user	  ;;
-		--review-mode )		 REVIEW_MODE="${2// }";	 shift 2 || missingArg --review-mode  ;;
-		--sa-config )		 SA_CONFIG="$2";		 shift 2 || missingArg --sa-config	  ;;
-		--sa-settings )		 SA_SETTINGS="$2";		 shift 2 || missingArg --sa-settings  ;;
-		--testgen-config ) 	 TESTGEN_CONFIG="$2";	 shift 2 || missingArg --testgen-config  ;;
+		--git-project )		 GIT_PROJECT="${2// }";	 shift 2 || missingArg --git-project       ;;
+		--git-owner )		 GIT_OWNER="${2// }";	 shift 2 || missingArg --git-owner	       ;;
+		--git-repo )		 GIT_REPO="${2// }";	 shift 2 || missingArg --git-repo	       ;;
+		--git-base-url )	 GIT_BASEURL="${2// }";	 shift 2 || missingArg --git-base-url      ;;
+		--git-auth )		 GIT_AUTH="$2";			 shift 2 || missingArg --git-auth	       ;;
+		--git-user )		 GIT_USER="$2";			 shift 2 || missingArg --git-user	       ;;
+		--review-mode )		 REVIEW_MODE="${2// }";	 shift 2 || missingArg --review-mode       ;;
+		--sa-config )		 SA_CONFIG="$2";		 shift 2 || missingArg --sa-config	       ;;
+		--sa-settings )		 SA_SETTINGS="$2";		 shift 2 || missingArg --sa-settings       ;;
+		--sa-fix-count )	 SA_FIX_COUNT="${2// }"; shift 2 || missingArg --sa-fix-count      ;;
+		--testgen-config ) 	 TESTGEN_CONFIG="$2";	 shift 2 || missingArg --testgen-config    ;;
 		--testgen-settings ) TESTGEN_SETTINGS="$2";	 shift 2 || missingArg --testgen-settings  ;;
 		--maven-path )       MVN_PATH="$2/bin/mvn";	 shift 2 || missingArg --maven-path
 			if [[ -f "$MVN_PATH" ]]; then
@@ -272,8 +275,8 @@ if [[ "$GOALS" == *"static"* || "$GOALS" == *"static-fix"* ]]; then
 	if [[ -z "$NUM_VIOLATIONS" ]]; then
 		NUM_VIOLATIONS=0
 	fi
-	echo "Jtest found $NUM_VIOLATIONS violations"
-	SUMMARY+="- Jtest found $NUM_VIOLATIONS violations"$'\n'
+	echo "Jtest found $NUM_VIOLATIONS violation(s)"
+	SUMMARY+="- Jtest found $NUM_VIOLATIONS violation(s)"$'\n'
 else
 	NUM_VIOLATIONS=0
 fi
@@ -287,6 +290,7 @@ if [[ "$NUM_VIOLATIONS" -ne 0 && "$GOALS" == *"static-fix"* ]]; then
 	#export JTEST_HOME="C:/Program Files/Parasoft/jtest-2025.2.0"      # Should be set by the job, or on the workstation ENV
 	export JTEST_SETTINGS="$SA_SETTINGS"
 	export MVN_EXE="$MVN"
+	export NUMBER_OF_FIXES="$SA_FIX_COUNT"
 	
 	rm -rf scripts/copilot_summary.md
 	"$COPILOT" -p "Using @scripts/copilot-instructions.md, fix violations" --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
