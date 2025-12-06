@@ -3,6 +3,7 @@
 MVN=
 COPILOT=
 GIT_TYPE=GitHub
+REVIEW_MODE=review
 GIT_PULL_REQUEST_ID=
 GIT_PROJECT=XTEST
 GIT_OWNER="Parasoft-AI"
@@ -32,6 +33,10 @@ function print_usage() {
 	echo "                                            Must provide permissions to make editing calls to pull-requests"
 	echo "          --git-user <username>             Username for interacting with pull-request API"
 	echo "                                            Must match the auth token"
+	echo "          --review-mode <mode>              'review' - posts a comment and can mark pull-request as 'needs work'"
+	echo "                                            'status' - creates a build status for the last commit and adds a comment when done."
+	echo "                                            'check' - creates a check run for the last commit and adds a comment when done."
+	echo "                                            Default: review"
 	echo "          --sa-config <configuration>       Jtest configuration to use when performing static analysis"
 	echo "                                            Default: 'builtin://Recommended Rules'"
 	echo "          --sa-settings <settings>          Path to the .properties file for Jtest static analysis settings"
@@ -70,6 +75,7 @@ do
 		--git-base-url )	 GIT_BASEURL="${2// }";	 shift 2 || missingArg --git-base-url ;;
 		--git-auth )		 GIT_AUTH="$2";			 shift 2 || missingArg --git-auth	  ;;
 		--git-user )		 GIT_USER="$2";			 shift 2 || missingArg --git-user	  ;;
+		--review-mode )		 REVIEW_MODE="${2// }";	 shift 2 || missingArg --review-mode  ;;
 		--sa-config )		 SA_CONFIG="$2";		 shift 2 || missingArg --sa-config	  ;;
 		--sa-settings )		 SA_SETTINGS="$2";		 shift 2 || missingArg --sa-settings  ;;
 		--testgen-config ) 	 TESTGEN_CONFIG="$2";	 shift 2 || missingArg --testgen-config  ;;
@@ -207,7 +213,6 @@ echo "Found project name $PROJECT_NAME"
 
 if [[ "$GOALS" == *"run-test"* ]]; then
 	# Run impacted tests with Jtest
-	# TODO: Make this a TIA run
 	echo ""
 	echo "============================="
 	echo "=====[ Run Junit tests ]====="
