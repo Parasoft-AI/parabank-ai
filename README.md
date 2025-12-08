@@ -4,6 +4,7 @@ This is a clone of the Parabank Github project [here](https://github.com/parasof
 
 - The scripts directory has been added with files and scripts used to perform automated quality-gate analysis
 - All branches except for master have been deleted
+- The pom has the run-tia profile added, along with Jtest and TIA maven plugins
 
 ## Prerequisites
 
@@ -18,8 +19,10 @@ In order to perform the quality-gate analysis, you will need the following:
     - npm v10 or higher
     - (On Windows) PowerShell v6 or higher
     - An active Copilot subscription. [See Copilot plans](https://github.com/features/copilot/plans?ref_cta=Copilot+plans+signup&ref_loc=install-copilot-cli&ref_page=docs).
+	- *Note*: Copilot CLI is actively being developed. If you run into issues using it, try switching to a different version!
 - Jtest 2025.2+ with an active Parasoft license
 - A Github account with access to the [Parasoft-AI](https://github.com/parasoft-AI) organization. This provides the "Copilot subscription" above and access to the model used by scripts.
+    - You will also need a [Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) (PAT) with the Pull Request, Content, and Commit statuses (optional) read/write permissions.
 
 ## Installation
 
@@ -44,7 +47,7 @@ In order to perform the quality-gate analysis, you will need the following:
 This is intended to be done after a pull-request is created, to perform analysis on the files changed in the pull-request. Here's an example workflow:
 
 1. Clone this project into a local directory.
-2. Make a code change, commit it, and submit a pull-request
+2. Create a new branch, make a code change, commit it, and create a pull-request
 3. Build the jtestcli.properties file with the following settings:<br/>
     parasoft.eula.accepted=true<br/>
 	license and/or DTP settings<br/>
@@ -61,17 +64,31 @@ This is intended to be done after a pull-request is created, to perform analysis
 	LLM settings (optional)
 5. Run scripts/run-copilot-fix.sh --pull-request \<id\> --git-auth \<auth_token\> \<goals\><br/>
 	The pull-request ID is the number from github<br/>
-	The auth_token should be a fine-grained Personal Access Token with permissions for pull-requests for the GitHub repository. See [Managing your Personal Access Tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).<br/>
-	The goals should be one or more of static, static-fix, run-test, and/or testgen. Each is a separate argument and represent the different parts of analysis. If not specified, all goals are run.
+	The auth_token should be a fine-grained Personal Access Token with read/write permissions for Pull requests, Contents, and (optionally) Commit statuses. See [Managing your Personal Access Tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).<br/>
+	The goals should be one or more of static, static-fix (auto-includes 'static'), run-test, and/or testgen. Each is a separate argument and represent the different parts of analysis. If not specified, all goals are run.
+
+Example CLI
+
+`./scripts/run-copilot-fix.sh --pull-request 1 --git-auth \<MY_PAT\> run-test static-fix testgen`
+
+For usage information
+
+`./scripts/run-copilot-fix.sh --help`
 
 ## Expected results
 
-The run-copilot-fix.sh script should perform static analysis using the Jtest Maven plugin on all java files modified in the pull-request branch.
-Copilot CLI should then be used to fix 2 violations per file and commit the fixes. These commits are pushed to the pull-request.
-Impacted Junit tests are run using the Jtest Maven plugin, and the results are summarized by Copilot CLI.
-Bulk creation is performed using the Jtest Maven plugin, and modified .java files are committed and pushed to the pull-request.
-A report is generated with the outcome of all the above steps, including summaries from Copilot about its fixes for violations and the Junit execution results. The report is added as a comment to the pull-request. If Junit tests failed, the pull-request is marked as "Needs work".
-Files should be generated in the scripts/ folder for debugging:
+The run-copilot-fix.sh script should perform the steps specified in the goals, in the following order:
+
+1. (If run-test is a goal) Impacted Junit tests are run using the Jtest Maven plugin, and the results are summarized by Copilot CLI.
+2. (If static or static-fix is a goal) Static analysis using the Jtest Maven plugin on all java files modified in the pull-request branch<br/>
+   *Note*: You can specify the run configuration to use with the `--sa-config` argument to the script
+3. (If static-fix is a goal) Copilot CLI will be used to fix 2 violations per file and commit the fixes (this number can be overridden with `--sa-fix-count`). These commits are pushed to the pull-request.<br/>
+    Each violation fix is validated using jtestcli to perform analysis again and verify the violation is gone<br/>
+	Impacted tests are also run after each fix to verify it did not cause any new test failures
+4. (If testgen is a goal) Bulk creation is performed using the Jtest Maven plugin, and modified .java files are committed and pushed to the pull-request.
+5. A report is generated with the outcome of all the above steps, including summaries from Copilot about its fixes for violations and the Junit execution results. The report is added as a comment to the pull-request. If Junit tests failed, the pull-request is marked as "Needs work".
+
+In the above steps, files will be generated in the scripts/ folder for debugging:
 
 - .json files are the Github API responses for curl requests made during script execution
 - copilot_summary.md is Copilot's summary of violation fixes performed and is added to the pull-request summary comment
