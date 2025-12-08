@@ -131,13 +131,14 @@ function cancel_review() {
 			echo ""
 			;;
 		status )
+			COMMIT_ID=$(git rev-parse HEAD)
 			echo "Setting commit status to failure"
-			curl -X POST --url "$GIT_BASEURL/repos/$GIT_OWNER/$GIT_REPO/statuses/$(git rev-parse HEAD)" -L \
+			curl -X POST --url "$GIT_BASEURL/repos/$GIT_OWNER/$GIT_REPO/statuses/$COMMIT_ID" -L \
 				-H "Accept: application/vnd.github+json" \
 				-H "User-Agent: $GIT_USER" \
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
-				-d "{\"state\":\"failure\",\"target_url\"=\"$BUILD_URL\",\"description\":\"$GIT_USER analysis cancelled\",\"context\":\"continuous-integration/jenkins\"}" \
+				-d "{\"state\":\"failure\",\"target_url\"=\"$BUILD_URL\",\"description\":\"Analysis aborted\",\"context\":\"$GIT_USER\"}" \
 				-o scripts/cancelled.json
 			echo "Commit status $STATUS_ID marked as failure"
 			echo ""
@@ -192,12 +193,13 @@ function finish_review() {
 			echo ""
 			;;
 		status )
-			curl -X POST --url "$GIT_BASEURL/repos/$GIT_OWNER/$GIT_REPO/statuses/$(git rev-parse HEAD)" -L \
+			COMMIT_ID=$(git rev-parse HEAD)
+			curl -X POST --url "$GIT_BASEURL/repos/$GIT_OWNER/$GIT_REPO/statuses/$COMMIT_ID" -L \
 				-H "Accept: application/vnd.github+json" \
 				-H "User-Agent: $GIT_USER" \
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
-				-d "{\"state\":\"$STATE\",\"target_url\"=\"$BUILD_URL\",\"description\":\"$GIT_USER analysis complete\",\"context\":\"continuous-integration/jenkins\"}" \
+				-d "{\"state\":\"$STATE\",\"target_url\"=\"$BUILD_URL\",\"description\":\"Analysis complete\",\"context\":\"$GIT_USER\"}" \
 				-o scripts/finish_status.json
 			echo "Commit status $STATUS_ID marked as $STATE"
 			curl -X POST --url "$GIT_BASEURL/repos/$GIT_OWNER/$GIT_REPO/issues/$GIT_PULL_REQUEST_ID/comments" -L \
