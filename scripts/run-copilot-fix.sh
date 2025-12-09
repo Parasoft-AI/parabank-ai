@@ -35,8 +35,8 @@ function print_usage() {
 	echo "          --git-user <username>             Username for interacting with pull-request API"
 	echo "                                            Must match the auth token"
 	echo "          --review-mode <mode>              'review' - posts a comment and can mark pull-request as 'needs work'"
-	echo "                                            'status' - creates a build status for the last commit and adds a comment when done."
-	echo "                                            'check' - creates a check run for the last commit and adds a comment when done."
+	echo "                                            'status' - NYI in BitBucket - creates a build status for the last commit."
+	echo "                                            'check' - NYI - creates a check run for the last commit."
 	echo "                                            Default: review"
 	echo "          --sa-config <configuration>       Jtest configuration to use when performing static analysis"
 	echo "                                            Default: 'builtin://Recommended Rules'"
@@ -50,9 +50,9 @@ function print_usage() {
 	echo "          --copilot-path <path>             Path to copilot executable"
 	echo ""
 	echo "Goals:    run-test                          Runs impacted tests on the current branch"
+	echo "          testgen                           Performs bulk creation for all .java files modified in the pull-request and commits them"
 	echo "          static                            Perform Static Analysis on modified files in the current branch"
 	echo "          static-fix                        Asks CoPilot to fix violations - auto-includes 'static' goal"
-	echo "          testgen                           Performs bulk creation for all .java files modified in the pull-request and commits them"
 }
 function missingArg () {
 	echo "ERROR:  missing argument for:  $1"
@@ -222,10 +222,10 @@ if [[ "$GOALS" == *"run-test"* ]]; then
 	# Run impacted tests with Jtest
 	echo ""
 	echo "============================="
-	echo "=====[ Run Junit tests ]====="
+	echo "=====[ Run JUnit tests ]====="
 	echo "============================="
 	"$MVN" test surefire-report:report-only -P run-tia -Dmaven.test.failure.ignore=true -Dtia.settings="$TIA_SETTINGS"
-	SUMMARY+="## Junit test execution"$'\n'
+	SUMMARY+="## JUnit test execution"$'\n'
 	SUMMARY+=""$'\n'
 	if [[ -f "target/reports/surefire.html" ]]; then
 		rm -rf scripts/test_failures.md
@@ -251,6 +251,53 @@ if [[ "$GOALS" == *"run-test"* ]]; then
 		echo "ERROR: No single surefire report was found at target/reports/surefire.html."
 		echo "       Make sure you have maven-surefire-report-plugin added to your pom.xml"
 		SUMMARY+="** No surefire report was found for executed tests! **$'\n'"
+	fi
+fi
+
+if [[ "$GOALS" == *"testgen"* ]]; then
+	# Perform Jtest CLI bulk test creation for modified source files. Commit changes and push to add to pull-request.
+	echo ""
+	echo "========================================================="
+	echo "=====[ Create JUnit tests for modified or new code ]====="
+	echo "========================================================="
+	get_modified_resources
+	"$MVN" jtest:jtest -Djtest.config="$TESTGEN_CONFIG" -Djtest.settings="$TESTGEN_SETTINGS" -Djtest.resources="$RESOURCES"
+	SUMMARY+="## Test creation for modified code"$'\n'
+
+	CONSOLE_TXT=$(find target/jtest/.jtest/logs -maxdepth 1 -type d -print0 | xargs -0 stat --format='%Y  %n' | sort -nr  | head -n1 | cut -d' ' -f2- | sed -e 's/^[ ]*//' -e 's/[ ]*$//')
+	"$COPILOT"  -p "In the file $CONSOLE_TXT/console.output.txt, find the sections called 'Diagnostics Summary' and 'Test generation finished', convert them into markdown format using no headers bigger than H3, and write the markdown to scripts/testgen.md." --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
+
+	if [[ -f scripts/testgen.md ]]; then
+		SUMMARY+=$(cat scripts/testgen.md)
+		SUMMARY+=$'\n'
+	else 
+		SUMMARY+="** No summary from Copilot CLI! **"$'\n'
+		SUMMARY+=""$'\n'
+		SUMMARY+="### Tests generated for classes"$'\n'
+		SUMMARY+=""$'\n'
+		SUMMARY+="$RESOURCES"$'\n'
+		SUMMARY+=""$'\n'
+		SUMMARY+="### New or modified test classes"$'\n'
+		SUMMARY+=""$'\n'
+		SUMMARY+=$(git status | grep .java | cut -d' ' -f2-)
+		SUMMARY+=""$'\n'
+	fi
+
+	SUMMARY+=""$'\n'
+	SUMMARY+="### Outcome"$'\n'
+	SUMMARY+=""$'\n'
+	MODIFIED=$(git diff --name-only HEAD -- "*.java")
+	if [[ ! -z "$MODIFIED" ]]; then
+		echo "Modified java code detected - adding to pull-request"
+		git add "*.java"
+		git commit -m "$GIT_USER: Adding JUnits for modified code: $GIT_PULL_REQUEST_ID"
+		git push
+		SUMMARY+="Tests were committed to this pull-request"$'\n'
+		if [[ "$STATUS" == "ok" ]]; then
+			STATUS=review
+		fi
+	else
+		SUMMARY+="No tests were added"$'\n'
 	fi
 fi
 
@@ -327,53 +374,6 @@ else
 		SUMMARY+="- No violations for Copilot to fix"$'\n'
 		SUMMARY+="- No fixes to push"$'\n'
 		SUMMARY+=""$'\n'
-	fi
-fi
-
-if [[ "$GOALS" == *"testgen"* ]]; then
-	# Perform Jtest CLI bulk test creation for modified source files. Commit changes and push to add to pull-request.
-	echo ""
-	echo "========================================================="
-	echo "=====[ Create Junit tests for modified or new code ]====="
-	echo "========================================================="
-	get_modified_resources
-	"$MVN" jtest:jtest -Djtest.config="$TESTGEN_CONFIG" -Djtest.settings="$TESTGEN_SETTINGS" -Djtest.resources="$RESOURCES"
-	SUMMARY+="## Test creation for modified code"$'\n'
-
-	CONSOLE_TXT=$(find target/jtest/.jtest/logs -maxdepth 1 -type d -print0 | xargs -0 stat --format='%Y  %n' | sort -nr  | head -n1 | cut -d' ' -f2- | sed -e 's/^[ ]*//' -e 's/[ ]*$//')
-	"$COPILOT"  -p "In the file $CONSOLE_TXT/console.output.txt, find the sections called 'Diagnostics Summary' and 'Test generation finished', convert them into markdown format using no headers bigger than H3, and write the markdown to scripts/testgen.md." --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
-
-	if [[ -f scripts/testgen.md ]]; then
-		SUMMARY+=$(cat scripts/testgen.md)
-		SUMMARY+=$'\n'
-	else 
-		SUMMARY+="** No summary from Copilot CLI! **"$'\n'
-		SUMMARY+=""$'\n'
-		SUMMARY+="### Tests generated for classes"$'\n'
-		SUMMARY+=""$'\n'
-		SUMMARY+="$RESOURCES"$'\n'
-		SUMMARY+=""$'\n'
-		SUMMARY+="### New or modified test classes"$'\n'
-		SUMMARY+=""$'\n'
-		SUMMARY+=$(git status | grep .java | cut -d' ' -f2-)
-		SUMMARY+=""$'\n'
-	fi
-
-	SUMMARY+=""$'\n'
-	SUMMARY+="### Outcome"$'\n'
-	SUMMARY+=""$'\n'
-	MODIFIED=$(git diff --name-only HEAD -- "*.java")
-	if [[ ! -z "$MODIFIED" ]]; then
-		echo "Modified java code detected - adding to pull-request"
-		git add "*.java"
-		git commit -m "Parasoft Jtest: Adding Junit tests for modified code $PULL_REQUEST_ID"
-		git push
-		SUMMARY+="Tests were committed to this pull-request"$'\n'
-		if [[ "$STATUS" == "ok" ]]; then
-			STATUS=review
-		fi
-	else
-		SUMMARY+="No tests were added"$'\n'
 	fi
 fi
 
