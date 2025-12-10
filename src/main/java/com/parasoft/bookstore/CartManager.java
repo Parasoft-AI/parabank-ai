@@ -39,7 +39,6 @@ public class CartManager {
         if (cartIdToOrderMap.containsKey(cartId)) {
             List<Order> list = cartIdToOrderMap.get(cartId);
             Iterator<Order> iterator = list.iterator();
-            boolean found = false;
             while (iterator.hasNext()) {
                 Order o = iterator.next();
                 Book book = o.getBook();
@@ -49,14 +48,11 @@ public class CartManager {
                     return o;
                 }
             }
-            if (!found) {
-                list.add(order);
-                return order;
-            }
-        } else { //cartId doesn't exist
-            throw new Exception("An order with Cart Id " + cartId + " does not exist!");
+            list.add(order);
+            return order;
         }
-        return null;
+        //cartId doesn't exist
+        throw new Exception("An order with Cart Id " + cartId + " does not exist!");
     }
 
     public Order updateExistingItem(int cartId, int itemId, int quantity) throws Exception {
