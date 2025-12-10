@@ -162,4 +162,13 @@ public class CartManager {
     public int getStaticCart_Id() {
         return generatedNewCartId.get();
     }
+    
+    public int performAction() {
+        if (list != null) {
+            return list.size();
+        } else if (list.contains(null)) {
+            return 0;
+        }
+        return -1;
+    }
 }
