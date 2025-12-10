@@ -74,6 +74,7 @@ When the user requests violation fixes, you MUST follow this exact sequence:
          - use `get_violations_from_report_file` on the generated report (`.jtest/reports/report_<violation_id>/report.xml`) to confirm whether the specific violation has been resolved; if any new violations were introduced by the fix - attempt once to fix them, and verify; in case you fail to do that: FAILURE
          - parse the generated report to identify any setup problems of type `BUE` (node: `SetupProblems/Problem` attribute: `type="BUE"`), if any are found: FAILURE. **CRUCIAL: Always ignore messages which indicate that no compiled classes were found. DO NOT ATTEMPT TO COMPILE THE PROJECT!**
          - check that at least **ONE FILE** has been analyzed, otherwise: FAILURE.
+	  - finally, move `.jtest/reports/report_<violation_id>` to `artifacts/static`
    - Also verify the fix by following the steps:
 		1. Modify the file `scripts/jtestcli.properties` by setting the `scope.scontrol.files.filter.mode` property to `local`
 		2. Execute `mvn` based on `maven_path` parameter in a terminal with the mandatory switches:
@@ -89,6 +90,7 @@ When the user requests violation fixes, you MUST follow this exact sequence:
 				- If no tests were run, warn the user and SUCCESS
 				- If at least one test was run, parse the surefire report to find any failed tests, if any are found: FAILURE
 		4. Revert the change to `scripts/jtestcli.properties` by setting the  `scope.scontrol.files.filter.mode` property to `branch`
+		5. Move the directory `target/reports` if it exists to `artifacts/static/test_<violation_id>`
    - If SUCCESS: commit with detailed message
    - If FAILURE: revert, report error, optionally retry once with a different approach. **DO NOT ATTEMPT TO COMMIT ON FAILURE, EVEN IF REASON IS UNRELATED WITH THE FIX, REPORT ISSUE TO THE USER**
 

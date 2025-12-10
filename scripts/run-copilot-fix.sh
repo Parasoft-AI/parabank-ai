@@ -231,13 +231,18 @@ if [[ "$GOALS" == *"run-test"* ]]; then
 	SUMMARY+=""$'\n'
 	rm -rf artifacts/tia-run
 	mkdir -p artifacts/tia-run
-	echo "Archiving Jtest logs to artifacts/tia-run"
-	mv target/jtest/.jtest/logs artifacts/tia-run/logs
+	if [[ -d target/jtest/.jtest/logs ]]; then
+		echo "Archiving Jtest logs to artifacts/tia-run"
+		mv target/jtest/.jtest/logs artifacts/tia-run/logs
+	fi
 	if [[ -f "target/reports/surefire.html" ]]; then
 		"$COPILOT" -p "Examine the Surefire report at target/reports/surefire.html. Create a simple markdown report containing only information from the 'Summary' and 'Failure Details' sections of the report and using no headers bigger than H3. If there were any failures, write your report to artifacts/tia-run/test_failures.md; otherwise, write your report to artifacts/tia-run/test_results.md." --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
+		
 		echo "Archiving surefire and Jtest reports to artifacts/tia-run"
 		mv target/reports artifacts/tia-run/surefire
-		mv target/jtest/report* artifacts/tia-run
+		if [[ -d target/jtest ]]; then
+			mv target/jtest/report* artifacts/tia-run
+		fi
 		if [[ -f "artifacts/tia-run/test_failures.md" ]]; then
 			echo "There are test failures. The pull-request will be marked as 'Needs Work'."
 			COMMENT=$(cat artifacts/tia-run/test_failures.md)
@@ -276,9 +281,11 @@ if [[ "$GOALS" == *"testgen"* ]]; then
 	CONSOLE_TXT=$(find target/jtest/.jtest/logs -maxdepth 1 -type d -print0 | xargs -0 stat --format='%Y  %n' | sort -nr  | head -n1 | cut -d' ' -f2- | sed -e 's/^[ ]*//' -e 's/[ ]*$//')
 	"$COPILOT"  -p "In the file $CONSOLE_TXT/console.output.txt, find the sections called 'Diagnostics Summary' and 'Test generation finished', convert them into markdown format using no headers bigger than H3, and write the markdown to artifacts/testgen/testgen.md." --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
 	
-	echo "Archiving Jtest logs to artifacts/testgen"
-	mv target/jtest/.jtest/logs artifacts/testgen/logs
-	mv target/jtest/report* artifacts/testgen
+	if [[ -d target/jtest/.jtest/logs ]]; then
+		echo "Archiving Jtest logs to artifacts/testgen"
+		mv target/jtest/.jtest/logs artifacts/testgen/logs
+		mv target/jtest/report* artifacts/testgen
+	fi
 
 	if [[ -f artifacts/testgen/testgen.md ]]; then
 		SUMMARY+=$(cat artifacts/testgen/testgen.md)
@@ -341,9 +348,11 @@ if [[ "$GOALS" == *"static"* || "$GOALS" == *"static-fix"* ]]; then
 	echo "Jtest found $NUM_VIOLATIONS violation(s)"
 	SUMMARY+="- Jtest found $NUM_VIOLATIONS violation(s)"$'\n'
 	
-	echo "Archiving Jtest logs to artifacts/testgen"
-	mv target/jtest/.jtest/logs artifacts/static/logs
-	mv target/jtest/report* artifacts/static
+	if [[ -d target/jtest/.jtest/logs ]]; then
+		echo "Archiving Jtest logs to artifacts/testgen"
+		mv target/jtest/.jtest/logs artifacts/static/logs
+		mv target/jtest/report* artifacts/static
+	fi
 else
 	NUM_VIOLATIONS=0
 fi
