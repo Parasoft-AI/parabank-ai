@@ -28,6 +28,8 @@ public class UsernameTokenPasswordCallback implements CallbackHandler {
             } else if (NL_USERNAME3.equals(pc.getIdentifier())) {
                 pc.setPassword(NL_PASSWORD3);
             }
+        } else {
+            pc.getIdentifier();
         }
     }
 }
