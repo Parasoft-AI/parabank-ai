@@ -8,8 +8,8 @@ function start_review() {
 		-H "User-Agent: $GIT_USER" \
 		-H "Authorization: Bearer $GIT_AUTH" \
 		-H "X-GitHub-Api-Version: 2022-11-28" \
-		-o scripts/pull-request.json
-	if [[ ! -f scripts/pull-request.json ]]; then
+		-o artifacts/pull-request.json
+	if [[ ! -f artifacts/pull-request.json ]]; then
 		echo "ERROR: Invalid pull-request $GIT_PULL_REQUEST_ID"
 		exit 1
 	fi
@@ -19,10 +19,10 @@ function start_review() {
 		-H "User-Agent: $GIT_USER" \
 		-H "Authorization: Bearer $GIT_AUTH" \
 		-H "X-GitHub-Api-Version: 2022-11-28" \
-		-o scripts/changes.json
+		-o artifacts/changes.json
 
 	# Get the commit ID
-	COMMIT_ID=$(jq -r '.head.sha' scripts/pull-request.json)
+	COMMIT_ID=$(jq -r '.head.sha' artifacts/pull-request.json)
 	if [[ -z COMMIT_ID ]]; then
 		echo "ERROR: Unable to get commit ID for pull-request $GIT_PULL_REQUEST_ID"
 		exit 1
@@ -36,14 +36,14 @@ function start_review() {
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
 				-d "{\"commit_id\":\"$COMMIT_ID\"}" \
-				-o scripts/start-review.json
-			if [[ ! -f scripts/start-review.json ]]; then
+				-o artifacts/start-review.json
+			if [[ ! -f artifacts/start-review.json ]]; then
 				echo "ERROR: Unable to create pending review for $GIT_PULL_REQUEST_ID"
 				exit 1
 			fi
-			REVIEW_ID=$(jq -r '.id // empty' scripts/start-review.json)
+			REVIEW_ID=$(jq -r '.id // empty' artifacts/start-review.json)
 			if [[ -z "$REVIEW_ID" ]]; then
-				ERR=$(jq -r '.message' scripts/start-review.json)
+				ERR=$(jq -r '.message' artifacts/start-review.json)
 				echo "Unable to start review of pull-request $GIT_PULL_REQUEST_ID: $ERR"
 				exit 1
 			fi
@@ -59,14 +59,14 @@ function start_review() {
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
 				-d "{\"name\":\"$GIT_USER\",\"head_sha\":\"$COMMIT_ID\",\"status\":\"in_progress\",\"external_id\":\"$GIT_PULL_REQUEST_ID\",\"started_at\":\"$STARTED_AT\",\"output\":{\"title\":\"$GIT_USER Analysis\",\"summary\":\"\",\"text\":\"\"}}" \
-				-o scripts/start-checks.json
-			if [[ ! -f scripts/start-checks.json ]]; then
+				-o artifacts/start-checks.json
+			if [[ ! -f artifacts/start-checks.json ]]; then
 				echo "ERROR: Unable to start check run for pull-request $GIT_PULL_REQUEST_ID"
 				exit 1
 			fi
-			CHECK_ID=$(jq -r '.id // empty' scripts/start-checks.json)
+			CHECK_ID=$(jq -r '.id // empty' artifacts/start-checks.json)
 			if [[ -z "$CHECK_ID" ]]; then
-				ERR=$(jq -r '.message' scripts/start-checks.json)
+				ERR=$(jq -r '.message' artifacts/start-checks.json)
 				echo "Unable to start start check run for pull-request $GIT_PULL_REQUEST_ID: $ERR"
 				exit 1
 			fi
@@ -81,14 +81,14 @@ function start_review() {
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
 				-d "{\"state\":\"pending\",\"target_url\"=\"$BUILD_URL\",\"description\":\"$GIT_USER is performing analysis\",\"context\":\"continuous-integration/jenkins\"}" \
-				-o scripts/start-status.json
-			if [[ ! -f scripts/start-status.json ]]; then
+				-o artifacts/start-status.json
+			if [[ ! -f artifacts/start-status.json ]]; then
 				echo "ERROR: Unable to create pending status for pull-request $GIT_PULL_REQUEST_ID"
 				exit 1
 			fi
-			STATUS_ID=$(jq -r '.id // empty' scripts/start-status.json)
+			STATUS_ID=$(jq -r '.id // empty' artifacts/start-status.json)
 			if [[ -z "$STATUS_ID" ]]; then
-				ERR=$(jq -r '.message' scripts/start-status.json)
+				ERR=$(jq -r '.message' artifacts/start-status.json)
 				echo "Unable to create pending status for pull-request $GIT_PULL_REQUEST_ID: $ERR"
 				exit 1
 			fi
@@ -99,7 +99,7 @@ function start_review() {
 }
 
 function get_modified_resources() {
-	RESOURCES=$(jq -r "map(select(.filename | endswith(\".java\")) | .filename) | map(\"$PROJECT_NAME/\" + .) | join(\",\")" scripts/changes.json)
+	RESOURCES=$(jq -r "map(select(.filename | endswith(\".java\")) | .filename) | map(\"$PROJECT_NAME/\" + .) | join(\",\")" artifacts/changes.json)
 	echo "Modified files: $RESOURCES"
 }
 
@@ -112,7 +112,7 @@ function cancel_review() {
 				-H "User-Agent: $GIT_USER" \
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
-				-o scripts/cancelled.json
+				-o artifacts/cancelled.json
 			echo "Pull-request review $REVIEW_ID is cancelled"
 			echo ""
 			;;
@@ -126,7 +126,7 @@ function cancel_review() {
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
 				-d "{\"name\":\"$GIT_USER\",\"status\":\"completed\",\"external_id\":\"$GIT_PULL_REQUEST_ID\",\"started_at\":\"$STARTED_AT\",\"completed_at\":\"$NOW\",\"details_url\":\"$BUILD_URL\",\"conclusion\":\"cancelled\",\"output\":{\"title\":\"$GIT_USER analysis cancelled\",\"text\":\"$MESSAGE_ESC\"}}" \
-				-o scripts/cancelled.json
+				-o artifacts/cancelled.json
 			echo "Pull-request check run for $CHECK_ID is cancelled"
 			echo ""
 			;;
@@ -139,7 +139,7 @@ function cancel_review() {
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
 				-d "{\"state\":\"failure\",\"target_url\"=\"$BUILD_URL\",\"description\":\"Analysis aborted\",\"context\":\"$GIT_USER\"}" \
-				-o scripts/cancelled.json
+				-o artifacts/cancelled.json
 			echo "Commit status $STATUS_ID marked as failure"
 			echo ""
 			;;
@@ -176,7 +176,7 @@ function finish_review() {
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
 				-d "{\"body\": $MESSAGE_ESC, \"event\": \"$STATUS\"}" \
-				-o scripts/finish_review.json
+				-o artifacts/finish_review.json
 			echo "Pull-request review $REVIEW_ID finished with status $STATUS"
 			echo ""
 			;;
@@ -188,7 +188,7 @@ function finish_review() {
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
 				-d "{\"name\":\"$GIT_USER\",\"status\":\"completed\",\"external_id\":\"$GIT_PULL_REQUEST_ID\",\"started_at\":\"$STARTED_AT\",\"completed_at\":\"$NOW\",\"details_url\":\"$BUILD_URL\",\"conclusion\":\"$CONCLUSION\",\"output\":{\"title\":\"$GIT_USER analysis complete\",\"text\":\"$MESSAGE_ESC\"}}" \
-				-o scripts/finish_check.json
+				-o artifacts/finish_check.json
 			echo "Pull-request check run for $CHECK_ID is cancelled"
 			echo ""
 			;;
@@ -200,7 +200,7 @@ function finish_review() {
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
 				-d "{\"state\":\"$STATE\",\"target_url\"=\"$BUILD_URL\",\"description\":\"Analysis complete\",\"context\":\"$GIT_USER\"}" \
-				-o scripts/finish_status.json
+				-o artifacts/finish_status.json
 			echo "Commit status $STATUS_ID marked as $STATE"
 			curl -X POST --url "$GIT_BASEURL/repos/$GIT_OWNER/$GIT_REPO/issues/$GIT_PULL_REQUEST_ID/comments" -L \
 				-H "Accept: application/vnd.github+json" \
@@ -208,7 +208,7 @@ function finish_review() {
 				-H "Authorization: Bearer $GIT_AUTH" \
 				-H "X-GitHub-Api-Version: 2022-11-28" \
 				-d "{\"body\": $MESSAGE_ESC}" \
-				-o scripts/finish_comment.json
+				-o artifacts/finish_comment.json
 			echo "Summary comment added to pull-request $GIT_PULL_REQUEST_ID"
 			echo ""
 			;;

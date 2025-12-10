@@ -181,6 +181,9 @@ echo "    GIT_USER             : $GIT_USER"
 echo "    GOALS                : $GOALS"
 echo ""
 
+echo "Creating artifacts directory for reports and generated files"
+mkdir -p artifacts
+
 start_review
 
 # Setup an error trap to ensure cancel_review is called
@@ -206,7 +209,7 @@ function finish () {
 	SUMMARY+="Job details: [$BUILD_URL]($BUILD_URL)."$'\n'
 	SUMMARY+=""$'\n'
 	finish_review "$SUMMARY" "$STATUS"
-	echo "$SUMMARY" >> "scripts/summary.md"
+	echo "$SUMMARY" >> "artifacts/summary.md"
 	echo ""
 	echo "=====[ Done ]====="
 }
@@ -223,23 +226,28 @@ if [[ "$GOALS" == *"run-test"* ]]; then
 	echo "============================="
 	echo "=====[ Run JUnit tests ]====="
 	echo "============================="
-	"$MVN" test surefire-report:report-only -P run-tia -Dmaven.test.failure.ignore=true -Dtia.settings="$TIA_SETTINGS"
+	"$MVN" clean test surefire-report:report-only -P run-tia -Dmaven.test.failure.ignore=true -Dtia.settings="$TIA_SETTINGS"
 	SUMMARY+="## JUnit test execution"$'\n'
 	SUMMARY+=""$'\n'
+	rm -rf artifacts/tia-run
+	mkdir -p artifacts/tia-run
+	echo "Archiving Jtest logs to artifacts/tia-run"
+	mv target/jtest/.jtest/logs artifacts/tia-run/logs
 	if [[ -f "target/reports/surefire.html" ]]; then
-		rm -rf scripts/test_failures.md
-		rm -rf scripts/test_results.md
-		"$COPILOT" -p "Examine the Surefire report at @target/reports/surefire.html. Create a simple markdown report containing only information from the 'Summary' and 'Failure Details' sections of the report and using no headers bigger than H3. If there were any failures, write your report to scripts/test_failures.md; otherwise, write your report to scripts/test_results.md." --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
-		if [[ -f "scripts/test_failures.md" ]]; then
+		"$COPILOT" -p "Examine the Surefire report at target/reports/surefire.html. Create a simple markdown report containing only information from the 'Summary' and 'Failure Details' sections of the report and using no headers bigger than H3. If there were any failures, write your report to artifacts/tia-run/test_failures.md; otherwise, write your report to artifacts/tia-run/test_results.md." --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
+		echo "Archiving surefire and Jtest reports to artifacts/tia-run"
+		mv target/reports artifacts/tia-run/surefire
+		mv target/jtest/report* artifacts/tia-run
+		if [[ -f "artifacts/tia-run/test_failures.md" ]]; then
 			echo "There are test failures. The pull-request will be marked as 'Needs Work'."
-			COMMENT=$(cat scripts/test_failures.md)
+			COMMENT=$(cat artifacts/tia-run/test_failures.md)
 			SUMMARY+="$COMMENT"$'\n'
 			STATUS=needsWork
 			finish
 			exit 0
 		else
-			if [[ -f "scripts/test_results.md" ]]; then
-				COMMENT=$(cat scripts/test_results.md)
+			if [[ -f "artifacts/tia-run/test_results.md" ]]; then
+				COMMENT=$(cat artifacts/tia-run/test_results.md)
 				SUMMARY+="$COMMENT"$'\n'
 			else
 				echo "ERROR: No test summary found!"
@@ -260,14 +268,20 @@ if [[ "$GOALS" == *"testgen"* ]]; then
 	echo "=====[ Create JUnit tests for modified or new code ]====="
 	echo "========================================================="
 	get_modified_resources
-	"$MVN" jtest:jtest -Djtest.config="$TESTGEN_CONFIG" -Djtest.settings="$TESTGEN_SETTINGS" -Djtest.resources="$RESOURCES"
+	"$MVN" clean jtest:jtest -Djtest.config="$TESTGEN_CONFIG" -Djtest.settings="$TESTGEN_SETTINGS" -Djtest.resources="$RESOURCES"
 	SUMMARY+="## Test creation for modified code"$'\n'
+	rm -rf artifacts/testgen
+	mkdir -p artifacts/testgen
 
 	CONSOLE_TXT=$(find target/jtest/.jtest/logs -maxdepth 1 -type d -print0 | xargs -0 stat --format='%Y  %n' | sort -nr  | head -n1 | cut -d' ' -f2- | sed -e 's/^[ ]*//' -e 's/[ ]*$//')
-	"$COPILOT"  -p "In the file $CONSOLE_TXT/console.output.txt, find the sections called 'Diagnostics Summary' and 'Test generation finished', convert them into markdown format using no headers bigger than H3, and write the markdown to scripts/testgen.md." --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
+	"$COPILOT"  -p "In the file $CONSOLE_TXT/console.output.txt, find the sections called 'Diagnostics Summary' and 'Test generation finished', convert them into markdown format using no headers bigger than H3, and write the markdown to artifacts/testgen/testgen.md." --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
+	
+	echo "Archiving Jtest logs to artifacts/testgen"
+	mv target/jtest/.jtest/logs artifacts/testgen/logs
+	mv target/jtest/report* artifacts/testgen
 
-	if [[ -f scripts/testgen.md ]]; then
-		SUMMARY+=$(cat scripts/testgen.md)
+	if [[ -f artifacts/testgen/testgen.md ]]; then
+		SUMMARY+=$(cat artifacts/testgen/testgen.md)
 		SUMMARY+=$'\n'
 	else 
 		SUMMARY+="** No summary from Copilot CLI! **"$'\n'
@@ -285,15 +299,13 @@ if [[ "$GOALS" == *"testgen"* ]]; then
 	SUMMARY+=""$'\n'
 	SUMMARY+="### Outcome"$'\n'
 	SUMMARY+=""$'\n'
-	echo "Git status after test creation:"
-	git status
 	MODIFIED=$(git diff --name-only HEAD -- "*.java")
 	if [[ ! -z "$MODIFIED" ]]; then
 		echo "Modified java code detected - adding to pull-request"
 		git add "*.java"
 		git commit -m "$GIT_USER: Adding JUnits for modified code: $GIT_PULL_REQUEST_ID"
 		git push
-		SUMMARY+="Tests were committed to this pull-request"$'\n'
+		SUMMARY+="Tests were added to this pull-request: $(git rev-parse --short HEAD)"$'\n'
 		if [[ "$STATUS" == "ok" ]]; then
 			STATUS=review
 		fi
@@ -309,9 +321,11 @@ if [[ "$GOALS" == *"static"* || "$GOALS" == *"static-fix"* ]]; then
 	echo "=========================================================="
 	echo "=====[ Performing static analysis on modified files ]====="
 	echo "=========================================================="
+	"$MVN" clean jtest:jtest -Dmaven.test.skip=true -Djtest.config="$SA_CONFIG" -Djtest.settings="$SA_SETTINGS"
 	SUMMARY+="## Static Analysis"$'\n'
 	SUMMARY+=""$'\n'
-	"$MVN" jtest:jtest -Dmaven.test.skip=true -Djtest.config="$SA_CONFIG" -Djtest.settings="$SA_SETTINGS"
+	rm -rf artifacts/static
+	mkdir -p artifacts/static
 	if [[ ! -f 'target/jtest/jtest.data.json' ]]; then
 		echo "ERROR: SA failed"
 		finish
@@ -326,6 +340,10 @@ if [[ "$GOALS" == *"static"* || "$GOALS" == *"static-fix"* ]]; then
 	fi
 	echo "Jtest found $NUM_VIOLATIONS violation(s)"
 	SUMMARY+="- Jtest found $NUM_VIOLATIONS violation(s)"$'\n'
+	
+	echo "Archiving Jtest logs to artifacts/testgen"
+	mv target/jtest/.jtest/logs artifacts/static/logs
+	mv target/jtest/report* artifacts/static
 else
 	NUM_VIOLATIONS=0
 fi
@@ -335,19 +353,18 @@ if [[ "$NUM_VIOLATIONS" -ne 0 && "$GOALS" == *"static-fix"* ]]; then
     echo "==============================================================="
 	echo "=====[ Ask Copilot CLI to fix violations and commit them ]====="
 	echo "==============================================================="
-	export BASELINE_REPORT=target/jtest/report.xml
+	export BASELINE_REPORT=artifacts/static/report.xml
 	#export JTEST_HOME="C:/Program Files/Parasoft/jtest-2025.2.0"      # Should be set by the job, or on the workstation ENV
 	export JTEST_SETTINGS="$SA_SETTINGS"
 	export MVN_EXE="$MVN"
 	export NUMBER_OF_FIXES="$SA_FIX_COUNT"
 	
-	rm -rf scripts/copilot_summary.md
 	"$COPILOT" -p "Using @scripts/copilot-instructions.md, fix violations" --model claude-sonnet-4.5 --allow-all-tools --allow-all-paths --log-dir .copilot/logs/
 	
 	SUMMARY+="## Fixing violations with Copilot CLI"$'\n'
 	SUMMARY+=""$'\n'
-	if [[ -f scripts/copilot_summary.md ]]; then
-		SUMMARY+=$(cat scripts/copilot_summary.md)
+	if [[ -f artifacts/static/copilot_summary.md ]]; then
+		SUMMARY+=$(cat artifacts/static/copilot_summary.md)
 	else 
 		SUMMARY+="** No summary from Copilot CLI! **"$'\n'
 	fi
@@ -360,7 +377,7 @@ if [[ "$NUM_VIOLATIONS" -ne 0 && "$GOALS" == *"static-fix"* ]]; then
 	if [[ -n "$NEEDS_PUSH" ]]; then
 		echo "Pushing changes to update pull-request"
 		git push
-		SUMMARY+="Fixes committed to pull-request"$'\n'
+		SUMMARY+="Fixes were committed to the pull-request"$'\n'
 		STATUS=review
 	else
 		echo "No violation fixes to submit"

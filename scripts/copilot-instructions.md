@@ -77,7 +77,7 @@ When the user requests violation fixes, you MUST follow this exact sequence:
    - Also verify the fix by following the steps:
 		1. Modify the file `scripts/jtestcli.properties` by setting the `scope.scontrol.files.filter.mode` property to `local`
 		2. Execute `mvn` based on `maven_path` parameter in a terminal with the mandatory switches:
-			- `test`,
+			- `clean test`,
 			- `surefire-report:report-only`,
 			- `-P run-tia`,
 			- `-Dmaven.test.failure.ignore=true`,
@@ -85,12 +85,14 @@ When the user requests violation fixes, you MUST follow this exact sequence:
 		3. Interpret exit codes and the surefire report at `target/reports/surefire.html` to determine SUCCESS or FAILURE according to the Verification rules:
 			- retcode 0: SUCCESS
 			- retcode non-0: FAILURE
-			- parse the surefire report to find any failed tests, if any are found: FAILURE
+			- parse the output to determine if any tests were run
+				- If no tests were run, warn the user and SUCCESS
+				- If at least one test was run, parse the surefire report to find any failed tests, if any are found: FAILURE
 		4. Revert the change to `scripts/jtestcli.properties` by setting the  `scope.scontrol.files.filter.mode` property to `branch`
    - If SUCCESS: commit with detailed message
    - If FAILURE: revert, report error, optionally retry once with a different approach. **DO NOT ATTEMPT TO COMMIT ON FAILURE, EVEN IF REASON IS UNRELATED WITH THE FIX, REPORT ISSUE TO THE USER**
 
-5. **Summary**: Report a brief summary containing total fixes attempted, files modified, successful commits, and failures. Also write this brief summary in markdown format, using no headers bigger than H3, to scripts/copilot_summary.md.
+5. **Summary**: Report a brief summary containing total fixes attempted, files modified, successful commits, and failures. Also write this brief summary in markdown format, using no headers bigger than H3, to artifacts/static/copilot_summary.md.
 
 ---
 
