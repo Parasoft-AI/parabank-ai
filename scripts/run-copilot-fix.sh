@@ -186,8 +186,7 @@ start_review
 # Setup an error trap to ensure cancel_review is called
 error_handler() {
 	local exit_code=$?
-	local line_number=$LINENO
-	echo "Error: Command failed with exit code $exit_code on line $line_number."
+	echo "Error: Command failed with exit code $exit_code on line ${BASH_LINENO[0]}."
 	cancel_review
 	exit 1 # Exit the script with an error status
 }
@@ -286,6 +285,8 @@ if [[ "$GOALS" == *"testgen"* ]]; then
 	SUMMARY+=""$'\n'
 	SUMMARY+="### Outcome"$'\n'
 	SUMMARY+=""$'\n'
+	echo "Git status after test creation:"
+	git status
 	MODIFIED=$(git diff --name-only HEAD -- "*.java")
 	if [[ ! -z "$MODIFIED" ]]; then
 		echo "Modified java code detected - adding to pull-request"
@@ -297,6 +298,7 @@ if [[ "$GOALS" == *"testgen"* ]]; then
 			STATUS=review
 		fi
 	else
+		echo "No tests were added."
 		SUMMARY+="No tests were added"$'\n'
 	fi
 fi
