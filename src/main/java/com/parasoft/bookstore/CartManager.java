@@ -165,9 +165,10 @@ public class CartManager {
 
     public int performAction() {
         if (list != null) {
+            if (list.contains(null)) {
+                return 0;
+            }
             return list.size();
-        } else if (list.contains(null)) {
-            return 0;
         }
         return -1;
     }
