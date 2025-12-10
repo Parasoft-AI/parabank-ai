@@ -307,7 +307,8 @@ if [[ "$GOALS" == *"testgen"* ]]; then
 	SUMMARY+="### Outcome"$'\n'
 	SUMMARY+=""$'\n'
 	MODIFIED=$(git diff --name-only HEAD -- "*.java")
-	if [[ ! -z "$MODIFIED" ]]; then
+	ADDED=$(git ls-files --others --exclude-standard | grep '.*\.java')
+	if [[ ! -z "$MODIFIED" || ! -z "$ADDED" ]]; then
 		echo "Modified java code detected - adding to pull-request"
 		git add "*.java"
 		git commit -m "$GIT_USER: Adding JUnits for modified code: $GIT_PULL_REQUEST_ID"
