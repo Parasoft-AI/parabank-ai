@@ -272,8 +272,7 @@ if [[ "$GOALS" == *"testgen"* ]]; then
 	echo "========================================================="
 	echo "=====[ Create JUnit tests for modified or new code ]====="
 	echo "========================================================="
-	get_modified_resources
-	"$MVN" clean jtest:jtest -Djtest.config="$TESTGEN_CONFIG" -Djtest.settings="$TESTGEN_SETTINGS" -Djtest.resources="$RESOURCES"
+	"$MVN" clean jtest:jtest -Djtest.config="$TESTGEN_CONFIG" -Djtest.settings="$TESTGEN_SETTINGS"
 	SUMMARY+="## Test creation for modified code"$'\n'
 	rm -rf artifacts/testgen
 	mkdir -p artifacts/testgen
