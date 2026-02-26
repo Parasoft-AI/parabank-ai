@@ -16,11 +16,6 @@ function start_review() {
 		-o changes.json
 }
 
-function get_modified_resources() {
-	RESOURCES=$(jq -r '.values | map("$PROJECT_NAME/" + (.path.toString)) | join(",")' changes.json)
-	echo "Modified files: $RESOURCES"
-}
-
 function cancel_review() {
 	# Nothing to do
 }

@@ -98,11 +98,6 @@ function start_review() {
 	esac
 }
 
-function get_modified_resources() {
-	RESOURCES=$(jq -r "map(select(.filename | endswith(\".java\")) | .filename) | map(\"$PROJECT_NAME/\" + .) | join(\",\")" artifacts/changes.json)
-	echo "Modified files: $RESOURCES"
-}
-
 function cancel_review() {
 	case "$REVIEW_MODE" in
 		review )
